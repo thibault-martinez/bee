@@ -250,6 +250,9 @@ where
             info!("Stopped.");
         });
 
+        // TODO handle
+        let _ = tx.send(MilestoneSolidifierWorkerEvent(MilestoneIndex(0)));
+
         Ok(Self { tx })
     }
 }
