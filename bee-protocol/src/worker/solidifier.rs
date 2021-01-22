@@ -50,11 +50,7 @@ async fn heavy_solidification<B: StorageBackend>(
     traversal::visit_parents_depth_first(
         &**tangle,
         target_id,
-        |id, _, metadata| async move {
-            (!metadata.flags().is_requested() || id == target_id)
-                && !metadata.flags().is_solid()
-                && !requested_messages.contains(&id).await
-        },
+        |id, _, metadata| async move { !metadata.flags().is_solid() && !requested_messages.contains(&id).await },
         |visited_id, _, _| {
             visited.insert(*visited_id);
         },
