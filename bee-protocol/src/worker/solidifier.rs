@@ -241,6 +241,8 @@ where
                                 visisted,
                             )
                             .await;
+                        } else {
+                            break;
                         }
                     }
                     target = target + MilestoneIndex(1);
