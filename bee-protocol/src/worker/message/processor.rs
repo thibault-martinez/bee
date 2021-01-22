@@ -10,14 +10,14 @@ use crate::{
     storage::StorageBackend,
     worker::{
         BroadcasterWorker, BroadcasterWorkerEvent, MessageRequesterWorker, MessageSubmitterError, MetricsWorker,
-        PayloadWorker, PayloadWorkerEvent, PeerManagerResWorker, PropagatorWorker, PropagatorWorkerEvent,
-        RequestedMessages, TangleWorker,
+        MilestoneSolidifierWorker, MilestoneSolidifierWorkerEvent, PayloadWorker, PayloadWorkerEvent,
+        PeerManagerResWorker, PropagatorWorker, PropagatorWorkerEvent, RequestedMessages, TangleWorker,
     },
     ProtocolMetrics,
 };
 
 use bee_common::packable::Packable;
-use bee_message::{Message, MessageId};
+use bee_message::{milestone::MilestoneIndex, Message, MessageId};
 use bee_network::PeerId;
 use bee_runtime::{node::Node, shutdown_stream::ShutdownStream, worker::Worker};
 use bee_tangle::{metadata::MessageMetadata, MsTangle};
@@ -58,6 +58,7 @@ where
             TypeId::of::<MetricsWorker>(),
             TypeId::of::<PeerManagerResWorker>(),
             TypeId::of::<PayloadWorker>(),
+            TypeId::of::<MilestoneSolidifierWorker>(),
         ]
         .leak()
     }
@@ -69,6 +70,7 @@ where
         let broadcaster = node.worker::<BroadcasterWorker>().unwrap().tx.clone();
         let message_requester = node.worker::<MessageRequesterWorker>().unwrap().tx.clone();
         let payload_worker = node.worker::<PayloadWorker>().unwrap().tx.clone();
+        let milestone_solidifier = node.worker::<MilestoneSolidifierWorker>().unwrap().tx.clone();
 
         let tangle = node.resource::<MsTangle<N::Backend>>();
         let requested_messages = node.resource::<RequestedMessages>();
@@ -163,6 +165,10 @@ where
                 if tangle.is_synced_threshold(2) {
                     if let Err(e) = propagator.send(PropagatorWorkerEvent(message_id)) {
                         error!("Failed to send message id {} to propagator: {:?}.", message_id, e);
+                    }
+                } else if requested_messages.len().await == 0 {
+                    if let Err(e) = milestone_solidifier.send(MilestoneSolidifierWorkerEvent(MilestoneIndex(0))) {
+                        error!("Sending solidification event failed: {}.", e);
                     }
                 }
 
