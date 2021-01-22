@@ -60,7 +60,9 @@ async fn heavy_solidification<B: StorageBackend>(
         },
         |_, _, _| {},
         |missing_id| {
-            missing.insert(*missing_id);
+            if !tangle.is_solid_entry_point(missing_id) {
+                missing.insert(*missing_id);
+            }
         },
     )
     .await;
