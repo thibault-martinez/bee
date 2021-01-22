@@ -34,6 +34,12 @@ impl SolidEntryPoint {
     }
 }
 
+impl std::fmt::Display for SolidEntryPoint {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 impl Packable for SolidEntryPoint {
     type Error = <MessageId as Packable>::Error;
 
