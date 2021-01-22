@@ -162,7 +162,7 @@ where
                     is_selected: false,
                 });
 
-                if tangle.is_synced_threshold(2) {
+                if tangle.is_synced() {
                     if let Err(e) = propagator.send(PropagatorWorkerEvent(message_id)) {
                         error!("Failed to send message id {} to propagator: {:?}.", message_id, e);
                     }
