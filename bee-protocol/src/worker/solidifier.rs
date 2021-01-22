@@ -167,6 +167,7 @@ where
         let peer_manager = node.resource::<PeerManager>();
         let bus = node.bus();
         let ms_sync_count = config;
+        let stx = tx.clone();
 
         node.spawn::<Self, _, _>(|shutdown| async move {
             info!("Running.");
@@ -204,31 +205,28 @@ where
                     }
                 }
 
-                let mut target = lsmi + MilestoneIndex(1);
+                let target = lsmi + MilestoneIndex(1);
 
-                while target <= cmp::min(lsmi + MilestoneIndex(ms_sync_count), lmi) {
-                    if let Some(id) = tangle.get_milestone_message_id(target).await {
-                        let (solid, visisted) =
-                            heavy_solidification(&tangle, &message_requester, &requested_messages, target, id).await;
+                if let Some(id) = tangle.get_milestone_message_id(target).await {
+                    let (solid, visisted) =
+                        heavy_solidification(&tangle, &message_requester, &requested_messages, target, id).await;
 
-                        if solid {
-                            solidify(
-                                &tangle,
-                                &ledger_worker,
-                                &milestone_cone_updater,
-                                &peer_manager,
-                                &metrics,
-                                &bus,
-                                id,
-                                target,
-                                visisted,
-                            )
-                            .await;
-                        } else {
-                            break;
-                        }
+                    if solid {
+                        solidify(
+                            &tangle,
+                            &ledger_worker,
+                            &milestone_cone_updater,
+                            &peer_manager,
+                            &metrics,
+                            &bus,
+                            id,
+                            target,
+                            visisted,
+                        )
+                        .await;
+                        // TODO handle
+                        let _ = stx.send(MilestoneSolidifierWorkerEvent(MilestoneIndex(0)));
                     }
-                    target = target + MilestoneIndex(1);
                 }
             }
 
