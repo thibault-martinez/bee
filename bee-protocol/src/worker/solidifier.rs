@@ -81,23 +81,6 @@ async fn heavy_solidification<B: StorageBackend>(
     (solid, visited)
 }
 
-async fn light_solidification<B: StorageBackend>(
-    tangle: &MsTangle<B>,
-    message_requester: &mpsc::UnboundedSender<MessageRequesterWorkerEvent>,
-    requested_messages: &RequestedMessages,
-    target_index: MilestoneIndex,
-    target_id: MessageId,
-    parent1: MessageId,
-    parent2: MessageId,
-) {
-    debug!("Light solidification of milestone {} {}.", *target_index, target_id);
-
-    helper::request_message(tangle, message_requester, requested_messages, parent1, target_index).await;
-    if parent1 != parent2 {
-        helper::request_message(tangle, message_requester, requested_messages, parent2, target_index).await;
-    }
-}
-
 async fn solidify<B: StorageBackend>(
     tangle: &MsTangle<B>,
     ledger_worker: &mpsc::UnboundedSender<LedgerWorkerEvent>,
@@ -204,16 +187,14 @@ where
                 if index < requested {
                     if let Some(id) = tangle.get_milestone_message_id(index).await {
                         if let Some(message) = tangle.get(&id).await {
-                            if tangle.contains(message.parent1()).await || tangle.contains(message.parent2()).await {
-                            } else {
-                                light_solidification(
+                            if !tangle.contains(message.parent2()).await {
+                                debug!("Light solidification of milestone {} {}.", index, id);
+                                helper::request_message(
                                     &tangle,
                                     &message_requester,
                                     &requested_messages,
-                                    index,
-                                    id,
-                                    *message.parent1(),
                                     *message.parent2(),
+                                    index,
                                 )
                                 .await;
                             }
