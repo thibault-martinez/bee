@@ -210,7 +210,7 @@ where
                                     &tangle,
                                     &message_requester,
                                     &requested_messages,
-                                    requested,
+                                    index,
                                     id,
                                     *message.parent1(),
                                     *message.parent2(),
