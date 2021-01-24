@@ -8,6 +8,7 @@ use crate::peer::PeerManager;
 use bee_runtime::{node::Node, worker::Worker};
 
 use async_trait::async_trait;
+use log::warn;
 
 use std::convert::Infallible;
 
@@ -25,14 +26,18 @@ impl<N: Node> Worker<N> for PeerManagerResWorker {
     }
 
     async fn stop(self, node: &mut N) -> Result<(), Self::Error> {
-        if let Some(peer_manager) = node.remove_resource::<PeerManager>() {
-            for (_, (_, sender)) in peer_manager.peers.into_inner() {
-                if let Some(sender) = sender {
-                    // TODO: Should we handle this error?
-                    let _ = sender.1.send(());
+        let peer_manager = node.resource::<PeerManager>();
+
+        for (_, (peer, ctx)) in peer_manager.peers.write().await.iter_mut() {
+            if let Some((_, shutdown, fut)) = ctx.take() {
+                if let Err(e) = shutdown.send(()) {
+                    warn!("Sending shutdown to {} failed: {:?}.", peer.alias(), e);
                 }
+                let _ = fut.await;
             }
         }
+
+        node.remove_resource::<PeerManager>();
 
         Ok(())
     }

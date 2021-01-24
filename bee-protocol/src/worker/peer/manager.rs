@@ -88,9 +88,7 @@ where
                         if let Some(peer) = peer_manager.peers.write().await.get_mut(&id) {
                             let (shutdown_tx, shutdown_rx) = oneshot::channel();
 
-                            peer.1 = Some((sender, shutdown_tx));
-
-                            spawn(
+                            let handle = spawn(
                                 PeerWorker::new(
                                     peer.0.clone(),
                                     metrics.clone(),
@@ -107,15 +105,18 @@ where
                                     shutdown_rx,
                                 ),
                             );
+
+                            peer.1 = Some((sender, shutdown_tx, handle));
                         }
                     }
                     Event::PeerDisconnected { id } => {
                         // TODO write a get_mut peer manager method
                         if let Some(peer) = peer_manager.peers.write().await.get_mut(&id) {
-                            if let Some((_, shutdown)) = peer.1.take() {
+                            if let Some((_, shutdown, fut)) = peer.1.take() {
                                 if let Err(e) = shutdown.send(()) {
                                     warn!("Sending shutdown to {} failed: {:?}.", id.short(), e);
                                 }
+                                let _ = fut.await;
                             }
                         }
                     }
