@@ -24,21 +24,21 @@ pub use libp2p::{
 
 // Exports
 pub use config::{NetworkConfig, NetworkConfigBuilder};
-pub use conns::Origin;
+pub use conns::{ConnectionManager, Origin};
 pub use interaction::{commands::Command, events::Event};
 pub use network::NetworkController;
-pub use peers::{MessageReceiver, MessageSender, PeerInfo, PeerRelation};
+pub use peers::{MessageReceiver, MessageSender, PeerInfo, PeerManager, PeerRelation};
 
 /// A type that receives any event published by the networking layer.
 pub type NetworkListener = UnboundedReceiver<Event>;
 
 use config::DEFAULT_RECONNECT_INTERVAL_SECS;
-use conns::{ConnectionManager, ConnectionManagerConfig};
+use conns::ConnectionManagerConfig;
 use interaction::{
     commands,
     events::{self, InternalEvent},
 };
-use peers::{BannedAddrList, BannedPeerList, PeerList, PeerManager, PeerManagerConfig};
+use peers::{BannedAddrList, BannedPeerList, PeerList, PeerManagerConfig};
 
 use bee_runtime::node::{Node, NodeBuilder};
 

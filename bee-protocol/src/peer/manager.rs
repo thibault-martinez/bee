@@ -7,13 +7,17 @@ use bee_network::{MessageSender, PeerId};
 
 use futures::channel::oneshot;
 use log::debug;
-use tokio::sync::{RwLock, RwLockReadGuard};
+use tokio::{
+    sync::{RwLock, RwLockReadGuard},
+    task::JoinHandle,
+};
 
 use std::{collections::HashMap, sync::Arc};
 
 pub struct PeerManager {
     // TODO private
-    pub(crate) peers: RwLock<HashMap<PeerId, (Arc<Peer>, Option<(MessageSender, oneshot::Sender<()>)>)>>,
+    pub(crate) peers:
+        RwLock<HashMap<PeerId, (Arc<Peer>, Option<(MessageSender, oneshot::Sender<()>, JoinHandle<()>)>)>>,
     // This is needed to ensure message distribution fairness as iterating over a HashMap is random.
     // TODO private
     pub(crate) peers_keys: RwLock<Vec<PeerId>>,
@@ -35,7 +39,9 @@ impl PeerManager {
     pub(crate) async fn get(
         &self,
         id: &PeerId,
-    ) -> Option<impl std::ops::Deref<Target = (Arc<Peer>, Option<(MessageSender, oneshot::Sender<()>)>)> + '_> {
+    ) -> Option<
+        impl std::ops::Deref<Target = (Arc<Peer>, Option<(MessageSender, oneshot::Sender<()>, JoinHandle<()>)>)> + '_,
+    > {
         RwLockReadGuard::try_map(self.peers.read().await, |map| map.get(id)).ok()
     }
 
@@ -57,7 +63,7 @@ impl PeerManager {
     pub(crate) async fn remove(
         &self,
         id: &PeerId,
-    ) -> Option<(Arc<Peer>, Option<(MessageSender, oneshot::Sender<()>)>)> {
+    ) -> Option<(Arc<Peer>, Option<(MessageSender, oneshot::Sender<()>, JoinHandle<()>)>)> {
         debug!("Removed peer {}.", id);
         self.peers_keys.write().await.retain(|peer_id| peer_id != id);
         self.peers.write().await.remove(id)

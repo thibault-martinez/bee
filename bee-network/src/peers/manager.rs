@@ -24,6 +24,7 @@ use tokio_stream::wrappers::{IntervalStream, UnboundedReceiverStream};
 
 use std::{convert::Infallible, sync::atomic::Ordering};
 
+/// TODO DOC
 #[derive(Default)]
 pub struct PeerManager {}
 

@@ -41,6 +41,7 @@ lazy_static! {
     pub static ref LISTEN_ADDRESSES: Arc<RwLock<Vec<Multiaddr>>> = Arc::new(RwLock::new(Vec::new()));
 }
 
+/// TODO DOC
 #[derive(Default)]
 pub struct ConnectionManager {}
 
