@@ -9,6 +9,7 @@ pub mod config;
 pub mod flags;
 pub mod metadata;
 pub mod ms_tangle;
+pub mod shashmap;
 pub mod storage;
 pub mod traversal;
 pub mod urts;

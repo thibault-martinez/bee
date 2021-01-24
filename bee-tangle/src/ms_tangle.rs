@@ -18,7 +18,10 @@ use bee_runtime::resource::ResourceHandle;
 use async_trait::async_trait;
 use dashmap::DashMap;
 use log::{info, trace};
-use tokio::sync::Mutex;
+use tokio::{
+    sync::{mpsc, Mutex},
+    task,
+};
 
 use std::{
     ops::Deref,
@@ -29,6 +32,7 @@ use std::{
 pub struct StorageHooks<B> {
     #[allow(dead_code)]
     storage: ResourceHandle<B>,
+    tx: mpsc::UnboundedSender<HookOperation>,
 }
 
 #[async_trait]
@@ -40,10 +44,9 @@ impl<B: StorageBackend> Hooks<MessageMetadata> for StorageHooks<B> {
         Ok(self.storage.fetch(msg).await?.zip(self.storage.fetch(msg).await?))
     }
 
-    async fn insert(&self, msg: MessageId, tx: Message, metadata: MessageMetadata) -> Result<(), Self::Error> {
+    async fn insert(&self, msg_id: MessageId, msg: Message, metadata: MessageMetadata) -> Result<(), Self::Error> {
         trace!("Attempted to insert message {:?}", msg);
-        self.storage.insert(&msg, &tx).await?;
-        self.storage.insert(&msg, &metadata).await?;
+        let _ = self.tx.send(HookOperation::Insert(msg_id, msg, metadata));
         Ok(())
     }
 
@@ -54,15 +57,7 @@ impl<B: StorageBackend> Hooks<MessageMetadata> for StorageHooks<B> {
 
     async fn insert_approver(&self, msg: MessageId, approver: MessageId) -> Result<(), Self::Error> {
         trace!("Attempted to insert approver for message {:?}", msg);
-        self.storage.insert(&(msg, approver), &()).await
-    }
-
-    async fn update_approvers(&self, msg: MessageId, approvers: &Vec<MessageId>) -> Result<(), Self::Error> {
-        trace!("Attempted to update approvers for message {:?}", msg);
-        // self.storage.insert(&msg, approvers).await
-        for approver in approvers {
-            self.storage.insert(&(msg, *approver), &()).await?;
-        }
+        let _ = self.tx.send(HookOperation::Approver(msg, approver));
         Ok(())
     }
 }
@@ -101,10 +96,32 @@ impl<B> Deref for MsTangle<B> {
     }
 }
 
+enum HookOperation {
+    Insert(MessageId, Message, MessageMetadata),
+    Approver(MessageId, MessageId),
+}
+
 impl<B: StorageBackend> MsTangle<B> {
     pub fn new(storage: ResourceHandle<B>) -> Self {
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        let s = storage.clone();
+
+        task::spawn(async move {
+            while let Some(op) = rx.recv().await {
+                match op {
+                    HookOperation::Insert(message_id, message, metadata) => {
+                        let _ = s.insert(&message_id, &message).await;
+                        let _ = s.insert(&message_id, &metadata).await;
+                    }
+                    HookOperation::Approver(message_id, approver) => {
+                        let _ = s.insert(&(message_id, approver), &()).await;
+                    }
+                }
+            }
+        });
+
         Self {
-            inner: Tangle::new(StorageHooks { storage }),
+            inner: Tangle::new(StorageHooks { storage, tx }),
             milestones: Default::default(),
             solid_entry_points: Default::default(),
             latest_milestone_index: Default::default(),
