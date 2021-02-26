@@ -90,6 +90,7 @@ async fn process<B: StorageBackend>(
 ) {
     metrics.milestone_payload_inc(1);
 
+    // TODO is this check necessary ?
     if let Some(meta) = tangle.get_metadata(&message_id).await {
         if meta.flags().is_milestone() {
             return;

@@ -150,7 +150,11 @@ where
                         // store message
                         let inserted = tangle.insert(message, message_id, metadata).await.is_some();
 
-                        if !inserted {
+                        if inserted {
+                            if let Err(e) = payload_worker.send(PayloadWorkerEvent(message_id)) {
+                                warn!("Sending message id {} to payload worker failed: {:?}.", message_id, e);
+                            }
+                        } else {
                             metrics.known_messages_inc();
                             if let Some(ref peer_id) = from {
                                 peer_manager
@@ -217,11 +221,6 @@ where
                                 }
                             }
                         };
-
-                        if let Err(e) = payload_worker.send(PayloadWorkerEvent(message_id)) {
-                            warn!("Sending message id {} to payload worker failed: {:?}.", message_id, e);
-                        } else {
-                        }
 
                         if let Some(notifier) = notifier {
                             if let Err(e) = notifier.send(Ok(message_id)) {
